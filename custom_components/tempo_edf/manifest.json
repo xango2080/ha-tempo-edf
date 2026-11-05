@@ -1,0 +1,12 @@
+{
+  "domain": "tempo_edf",
+  "name": "EDF Tempo",
+  "codeowners": [],
+  "config_flow": true,
+  "documentation": "https://github.com/TON_COMPTE/ha-tempo-edf",
+  "issue_tracker": "https://github.com/TON_COMPTE/ha-tempo-edf/issues",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "requirements": [],
+  "version": "0.2.0"
+}

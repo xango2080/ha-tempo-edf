@@ -1,0 +1,38 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connexion à l'API RTE",
+        "description": "Crée une application sur data.rte-france.com abonnée à l'API « Tempo Like Supply Contract », puis recopie l'ID client et l'ID secret.",
+        "data": {
+          "client_id": "ID client",
+          "client_secret": "ID secret"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Identifiants refusés par RTE, ou application non abonnée à l'API « Tempo Like Supply Contract ».",
+      "cannot_connect": "Impossible de joindre l'API RTE."
+    },
+    "abort": {
+      "already_configured": "Ces identifiants sont déjà configurés."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Tarifs Tempo TTC (€/kWh)",
+        "description": "Recopie les prix de ta grille tarifaire EDF. Ils alimentent les capteurs de prix.",
+        "data": {
+          "price_blue_hc": "Bleu - heures creuses",
+          "price_blue_hp": "Bleu - heures pleines",
+          "price_white_hc": "Blanc - heures creuses",
+          "price_white_hp": "Blanc - heures pleines",
+          "price_red_hc": "Rouge - heures creuses",
+          "price_red_hp": "Rouge - heures pleines",
+          "history_seasons": "Saisons d'historique à récupérer (0 à 12)"
+        }
+      }
+    }
+  }
+}

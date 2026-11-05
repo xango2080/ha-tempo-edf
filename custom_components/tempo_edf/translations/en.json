@@ -1,0 +1,38 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "RTE API connection",
+        "description": "Create an application on data.rte-france.com subscribed to the \"Tempo Like Supply Contract\" API, then paste the client ID and secret.",
+        "data": {
+          "client_id": "Client ID",
+          "client_secret": "Client secret"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Rejected by RTE, or the application is not subscribed to the \"Tempo Like Supply Contract\" API.",
+      "cannot_connect": "Cannot reach the RTE API."
+    },
+    "abort": {
+      "already_configured": "These credentials are already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Tempo prices incl. tax (EUR/kWh)",
+        "description": "Copy the prices from your EDF tariff grid.",
+        "data": {
+          "price_blue_hc": "Blue - off-peak",
+          "price_blue_hp": "Blue - peak",
+          "price_white_hc": "White - off-peak",
+          "price_white_hp": "White - peak",
+          "price_red_hc": "Red - off-peak",
+          "price_red_hp": "Red - peak",
+          "history_seasons": "Past seasons to import (0-12)"
+        }
+      }
+    }
+  }
+}

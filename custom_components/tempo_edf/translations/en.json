@@ -30,7 +30,29 @@
           "price_white_hp": "White - peak",
           "price_red_hc": "Red - off-peak",
           "price_red_hp": "Red - peak",
-          "history_seasons": "Past seasons to import (0-12)"
+          "history_seasons": "Past seasons to import (0-12)",
+          "enedis_token": "Enedis Conso API token (optional)",
+          "enedis_prm": "Linky meter PRM, 14 digits (optional)"
+        }
+      }
+    },
+    "error": {
+      "invalid_enedis": "Provide both the token and a 14-digit PRM, or leave both empty."
+    }
+  },
+  "services": {
+    "enedis_fetch": {
+      "name": "Enedis diagnostic",
+      "description": "Queries Conso API (Enedis Mesure synchrone V2) and returns a summary of the real data format.",
+      "fields": {
+        "data_type": {
+          "name": "Data type"
+        },
+        "start_date": {
+          "name": "Start (inclusive)"
+        },
+        "end_date": {
+          "name": "End (exclusive)"
         }
       }
     }

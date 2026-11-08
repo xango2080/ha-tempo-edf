@@ -27,6 +27,23 @@ Le jour Tempo change à 06:00, les heures creuses vont de 22:00 à 06:00.
 Dans Configurer, « Saisons d'historique à récupérer » (3 par défaut, 12 max). L'import se fait en tâche de fond, une requête par saison (1er sept. au 31 août), et sa progression est sauvegardée : après un redémarrage ou une erreur réseau, il reprend là où il s'est arrêté. Pour en récupérer davantage, augmente simplement le nombre.
 Les jours importés apparaissent dans `calendar.edf_tempo_calendrier`. Les compteurs `sensor.edf_tempo_saison` ne concernent que la saison en cours.
 
+## Enedis (consommation) : couche API, étape 1
+
+Enedis n'ouvre son API qu'aux entreprises : on passe par la passerelle gratuite et open-source **Conso API** (conso.boris.sh), qui expose l'API Enedis « Mesure synchrone V2 ». L'ancienne API (V5) a été coupée mi-octobre 2026 : seuls les nouveaux types sont utilisés ici.
+
+1. Sur ton espace Enedis, active l'enregistrement de la **courbe de charge** (sans elle, pas de ventilation par couleur et HP/HC).
+2. Sur <https://conso.boris.sh>, clique sur le bouton Enedis, donne ton consentement, et récupère ton **token**.
+3. Ton **PRM** (14 chiffres) est sur le compteur (touche « + » jusqu'au PRM) ou dans ton espace Enedis.
+4. Intégration → Configurer : renseigne le token et le PRM.
+
+Les données du jour J ne sont disponibles que le lendemain, vers 8 h. Ne fais pas d'appels répétés : le service est gratuit mais l'abus mène à un blocage d'IP.
+
+### Valider le format réel (important)
+
+Enedis ne permet pas de tester ces API avant la bascule : le format ci-dessous est celui de la documentation, pas de données réelles observées. Utilise **Outils de développement → Actions → `tempo_edf.enedis_fetch`** (type `courbe_de_charge_consommation`, 2 jours) et regarde la réponse : `raw_head`, `meta` (unité ?) et `first` (le point `d` est-il le début ou la fin de l'intervalle ?). Fais la même chose avec `index_consommation` : s'il contient un index par tarif Tempo, la ventilation sera encore plus simple et plus fiable que via la courbe de charge.
+
+Hypothèses à confirmer, dans `enedis_parse.py` : `v` en W pour la courbe de charge et en Wh pour le quotidien, `d` = fin d'intervalle (`LOAD_CURVE_TS_IS_END`).
+
 ## Installation
 
 1. Copier `custom_components/tempo_edf/` dans `/config/custom_components/` (ou ajouter ce dépôt comme dépôt personnalisé HACS).

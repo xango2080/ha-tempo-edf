@@ -1,6 +1,7 @@
 """Config flow : identifiants RTE, puis tarifs en options."""
 from __future__ import annotations
 
+import re
 from datetime import timedelta
 from typing import Any
 
@@ -13,12 +14,17 @@ from homeassistant.helpers.selector import (
     NumberSelector,
     NumberSelectorConfig,
     NumberSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
+    TextSelectorType,
 )
 
 from .api import RteApiError, RteAuthError, RteClient
 from .const import (
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
+    CONF_ENEDIS_PRM,
+    CONF_ENEDIS_TOKEN,
     CONF_HISTORY_SEASONS,
     DEFAULT_HISTORY_SEASONS,
     DOMAIN,
@@ -69,11 +75,20 @@ class TempoConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class TempoOptionsFlow(OptionsFlow):
-    """Saisie des 6 tarifs TTC en €/kWh (à copier depuis la grille EDF)."""
+    """Tarifs TTC (€/kWh), historique RTE et accès Enedis (optionnel)."""
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
+            token = (user_input.pop(CONF_ENEDIS_TOKEN, "") or "").strip()
+            prm = (user_input.pop(CONF_ENEDIS_PRM, "") or "").strip().replace(" ", "")
+            if bool(token) != bool(prm) or (prm and not re.fullmatch(r"\d{14}", prm)):
+                errors["base"] = "invalid_enedis"
+            else:
+                if token:
+                    user_input[CONF_ENEDIS_TOKEN] = token
+                    user_input[CONF_ENEDIS_PRM] = prm
+                return self.async_create_entry(data=user_input)
 
         price = NumberSelector(
             NumberSelectorConfig(min=0, max=5, step=0.0001, mode=NumberSelectorMode.BOX)
@@ -83,9 +98,14 @@ class TempoOptionsFlow(OptionsFlow):
         )
         fields: dict = {vol.Optional(price_key(c, p)): price for c, p in TARIFFS}
         fields[vol.Optional(CONF_HISTORY_SEASONS, default=DEFAULT_HISTORY_SEASONS)] = seasons
+        fields[vol.Optional(CONF_ENEDIS_TOKEN)] = TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        )
+        fields[vol.Optional(CONF_ENEDIS_PRM)] = TextSelector(TextSelectorConfig())
         return self.async_show_form(
             step_id="init",
             data_schema=self.add_suggested_values_to_schema(
-                vol.Schema(fields), self.config_entry.options
+                vol.Schema(fields), user_input or self.config_entry.options
             ),
+            errors=errors,
         )

@@ -13,6 +13,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .api import RteApiError, RteAuthError, RteClient
+from .enedis_api import ConsoApiClient
 from .const import (
     CONF_HISTORY_SEASONS,
     DEFAULT_HISTORY_SEASONS,
@@ -39,6 +40,7 @@ class TempoCoordinator(DataUpdateCoordinator[dict[str, str]]):
             update_interval=timedelta(hours=POLL_INTERVAL_HOURS),
         )
         self._client = client
+        self.enedis: ConsoApiClient | None = None  # renseigné par __init__ si token + PRM
         # Stocké dans .storage/ : survit aux purges du recorder et est inclus dans les sauvegardes.
         self._store: Store[dict[str, Any]] = Store(hass, STORE_VERSION, f"{DOMAIN}.{entry.entry_id}")
         self.days: dict[str, str] = {}
@@ -75,11 +77,11 @@ class TempoCoordinator(DataUpdateCoordinator[dict[str, str]]):
             end = datetime.combine(today + timedelta(days=2), time.min, tzinfo=tz)
             try:
                 payload = await self._client.async_get_calendars(start, end)
-            except RteAuthError as err:
-                raise UpdateFailed(f"Identifiants RTE refusés : {err}") from err
-            except RteApiError as err:
+            except (RteAuthError, RteApiError) as err:
+                # Panne ou identifiants révoqués : si la couleur du jour est déjà stockée,
+                # les capteurs restent disponibles avec les données locales.
                 if today.isoformat() in self.days:
-                    _LOGGER.warning("RTE injoignable, données locales utilisées : %s", err)
+                    _LOGGER.warning("RTE indisponible, données locales utilisées : %s", err)
                     return self.days
                 raise UpdateFailed(str(err)) from err
 

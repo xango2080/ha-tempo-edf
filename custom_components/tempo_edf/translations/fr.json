@@ -30,7 +30,29 @@
           "price_white_hp": "Blanc - heures pleines",
           "price_red_hc": "Rouge - heures creuses",
           "price_red_hp": "Rouge - heures pleines",
-          "history_seasons": "Saisons d'historique à récupérer (0 à 12)"
+          "history_seasons": "Saisons d'historique à récupérer (0 à 12)",
+          "enedis_token": "Token Conso API Enedis (optionnel)",
+          "enedis_prm": "PRM du compteur Linky, 14 chiffres (optionnel)"
+        }
+      }
+    },
+    "error": {
+      "invalid_enedis": "Renseigne le token ET un PRM de 14 chiffres, ou laisse les deux vides."
+    }
+  },
+  "services": {
+    "enedis_fetch": {
+      "name": "Diagnostic Enedis",
+      "description": "Interroge Conso API (API Enedis Mesure synchrone V2) et renvoie un résumé du format réel des données.",
+      "fields": {
+        "data_type": {
+          "name": "Type de donnée"
+        },
+        "start_date": {
+          "name": "Début (inclus)"
+        },
+        "end_date": {
+          "name": "Fin (exclue)"
         }
       }
     }

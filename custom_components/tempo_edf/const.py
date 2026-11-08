@@ -9,6 +9,20 @@ CONF_HISTORY_SEASONS = "history_seasons"
 DEFAULT_HISTORY_SEASONS = 3
 MAX_HISTORY_SEASONS = 12
 
+# --- Enedis (via la passerelle Conso API, API « Mesure synchrone V2 ») ---
+CONF_ENEDIS_TOKEN = "enedis_token"
+CONF_ENEDIS_PRM = "enedis_prm"
+ENEDIS_BASE_URL = "https://conso.boris.sh/api"
+ENEDIS_USER_AGENT = "github.com/xango2080/ha-tempo-edf"
+ENEDIS_TYPES = [
+    "consommation_quotidienne",
+    "courbe_de_charge_consommation",
+    "puissance_conso_max_quotidienne",
+    "index_consommation",
+]
+LOAD_CURVE_CHUNK_DAYS = 7  # limite de la v5 ; non vérifiée en v2, on reste prudent
+SERVICE_ENEDIS_FETCH = "enedis_fetch"
+
 TOKEN_URL = "https://digital.iservices.rte-france.com/token/oauth/"
 CALENDAR_URL = (
     "https://digital.iservices.rte-france.com/open_api/"

@@ -8,8 +8,10 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_change
 
 from .api import RteClient
-from .const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, DOMAIN
+from .const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, CONF_ENEDIS_PRM, CONF_ENEDIS_TOKEN, DOMAIN
+from .enedis_api import ConsoApiClient
 from .coordinator import TempoCoordinator
+from .services import async_register_services
 
 PLATFORMS = [Platform.SENSOR, Platform.CALENDAR]
 
@@ -23,8 +25,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: TempoConfigEntry) -> boo
         entry.data[CONF_CLIENT_SECRET],
     )
     coordinator = TempoCoordinator(hass, entry, client)
+    token = entry.options.get(CONF_ENEDIS_TOKEN)
+    prm = entry.options.get(CONF_ENEDIS_PRM)
+    if token and prm:
+        coordinator.enedis = ConsoApiClient(async_get_clientsession(hass), token, prm)
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
+    async_register_services(hass)
 
     @callback
     def _tick(_now) -> None:

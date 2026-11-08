@@ -96,7 +96,7 @@ class TempoOptionsFlow(OptionsFlow):
                 return self.async_create_entry(data=user_input)
 
         price = NumberSelector(
-            NumberSelectorConfig(min=0, max=5, step=0.0001, mode=NumberSelectorMode.BOX)
+            NumberSelectorConfig(min=0, max=5, step="any", mode=NumberSelectorMode.BOX)
         )
         seasons = NumberSelector(
             NumberSelectorConfig(min=0, max=MAX_HISTORY_SEASONS, step=1, mode=NumberSelectorMode.BOX)

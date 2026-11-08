@@ -18,7 +18,6 @@ from .const import (
     PRICE_UNIT,
     SEASON_TOTALS,
     TARIFFS,
-    price_key,
 )
 from .entity import TempoEntity
 from .tempo import season_label, season_status, tempo_day
@@ -36,6 +35,8 @@ async def async_setup_entry(
         TempoSeasonSensor(c),
     ]
     entities += [TempoRemainingSensor(c, color) for color in SEASON_TOTALS]
+    if c.enedis_sync is not None:
+        entities.append(TempoEnedisSensor(c))
     entities += [TempoFixedPriceSensor(c, color, period) for color, period in TARIFFS]
     async_add_entities(entities)
 
@@ -118,7 +119,7 @@ class TempoCurrentPriceSensor(_PriceSensor):
         _, color = self.color_on(0)
         if not color:
             return None
-        return self.entry_options.get(price_key(color, self.period_now()))
+        return self.prices_today().get(f"{color}_{self.period_now()}")
 
 
 class TempoFixedPriceSensor(_PriceSensor):
@@ -126,12 +127,12 @@ class TempoFixedPriceSensor(_PriceSensor):
 
     def __init__(self, coordinator, color: str, period: str) -> None:
         super().__init__(coordinator, f"price_{color.lower()}_{period.lower()}")
-        self._opt = price_key(color, period)
+        self._opt = f"{color}_{period}"
         self._attr_name = f"Prix {COLORS[color]} {period}"
 
     @property
     def native_value(self) -> float | None:
-        return self.entry_options.get(self._opt)
+        return self.prices_today().get(self._opt)
 
 
 class TempoSeasonSensor(TempoEntity, SensorEntity):
@@ -198,4 +199,30 @@ class TempoRemainingSensor(TempoEntity, SensorEntity):
             "quota": self.coordinator.quota(self._color),
             "used": res["counts"][self._color],
             "history_complete": res["known"] == res["elapsed"],
+        }
+
+
+class TempoEnedisSensor(TempoEntity, SensorEntity):
+    """Suivi de l'import Enedis : dernier jour complet importé, avec le statut de la dernière synchro."""
+
+    _attr_name = "Enedis dernière donnée"
+    _attr_icon = "mdi:transmission-tower-import"
+    _attr_device_class = SensorDeviceClass.DATE
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "enedis_last_day")
+
+    @property
+    def native_value(self):
+        return self.coordinator.enedis_sync.last_day
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        sync = self.coordinator.enedis_sync
+        return {
+            "status": sync.status,
+            "last_run": sync.last_run,
+            "imported_days": sync.complete_days,
+            "history_start": sync.start_day,
+            "unassigned_hours": sync.unassigned_hours,
         }

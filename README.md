@@ -13,10 +13,11 @@ Intégration personnalisée qui récupère les **couleurs Tempo** (bleu, blanc, 
 | `sensor.edf_tempo_couleur_aujourd_hui` | Bleu / Blanc / Rouge (capteur à liste d'états : l'éditeur d'automatisations propose un menu déroulant). Attributs : `color` (blue/white/red), `emoji`, `color_hex`, `date` |
 | `sensor.edf_tempo_couleur_demain` | idem ; `unknown` tant que la couleur de demain n'est pas annoncée (vers 11 h) |
 | `sensor.edf_tempo_tarif_actuel` | ex. `Bleu HP` (attributs `period`, `is_hc`, `is_hp`) |
-| `sensor.edf_tempo_prix_actuel` | prix €/kWh en cours |
+| `sensor.edf_tempo_prix_actuel` | prix €/kWh en cours (grille en vigueur aujourd'hui) |
 | `sensor.edf_tempo_prix_<couleur>_<hc/hp>` | les 6 tarifs fixes (€/kWh) |
 | `sensor.edf_tempo_jours_bleus_restants`, `..._blancs_...`, `..._rouges_...` | jours restants de la saison par couleur (quotas lus dans `tempo.json`, 300 / 43 / 22 par défaut). Demain est déduit dès son annonce. Attributs `quota`, `used`, `history_complete`. `unknown` si l'historique de la saison est incomplet |
 | `sensor.edf_tempo_saison` | saison en cours (ex. `2026-2027`), avec jours utilisés/restants en attributs |
+| `sensor.edf_tempo_enedis_derniere_donnee` | (si Enedis est configuré) dernier jour complet importé ; attributs `status`, `last_run`, `imported_days`, `unassigned_hours` |
 | `calendar.edf_tempo_calendrier` | un évènement par jour Tempo, historique consultable |
 
 Le jour Tempo change à **06:00** (de 6 h à 6 h le lendemain). Heures creuses : **22:00 à 06:00**. Les capteurs de prix et de jours restants sont des mesures (`state_class: measurement`) : leurs statistiques long terme sont conservées par Home Assistant.
@@ -69,11 +70,19 @@ Les réglages et l'historique sont conservés (ils sont dans `/config/.storage/`
 
 Dans **Configurer**, « Saisons d'historique à récupérer » (3 par défaut, 12 maximum). L'import se fait en tâche de fond : une seule requête sur le CSV Jour Tempo ; si elle échoue et qu'une clé RTE est configurée, une requête par saison. La progression est sauvegardée. Pour remonter plus loin, augmenter le nombre. Les jours importés apparaissent dans `calendar.edf_tempo_calendrier`.
 
-## Tarifs
+## Tarifs datés
 
-Il n'existe pas de source ouverte lisible par machine pour la grille Tempo (le jeu de données de la CRE sur data.gouv.fr ne couvre que Base et HP/HC). Les 6 prix sont donc saisis à la main dans **Configurer**.
+L'intégration est livrée avec l'historique des grilles Tempo (€/kWh TTC, identiques de 6 à 36 kVA) :
 
-Saisis-les **le jour où un nouveau tarif entre en vigueur** : les capteurs changent à l'enregistrement, et dans la section Énergie, avec « Utiliser une entité avec le prix actuel », l'historique garde l'ancien prix.
+| En vigueur depuis | Bleu HC / HP | Blanc HC / HP | Rouge HC / HP |
+|---|---|---|---|
+| 1er août 2025 | 0,1232 / 0,1494 | 0,1391 / 0,1730 | 0,1460 / 0,6468 |
+| 1er février 2026 | 0,1325 / 0,1612 | 0,1499 / 0,1871 | 0,1575 / 0,7060 |
+| 1er août 2026 | 0,1356 / 0,1654 | 0,1536 / 0,1921 | 0,1615 / 0,7295 |
+
+Vérifie-les sur ta facture : il n'existe pas de source ouverte lisible par machine pour la grille Tempo (le jeu de données CRE sur data.gouv.fr ne couvre que Base et HP/HC).
+
+**Quand EDF change ses prix** : Configurer → saisir les 6 nouveaux prix **et leur date d'entrée en vigueur** (possible à l'avance). L'ancienne grille est conservée : le coût des jours passés ne change pas, et les capteurs de prix basculent seuls à minuit le jour J. Saisir la date d'une période existante la remplace (correction rétroactive : le coût est recalculé au redémarrage de l'intégration).
 
 ## Notification de la veille
 
@@ -131,29 +140,53 @@ entities:
 
 - **Calendrier des couleurs** : `/config/.storage/tempo_edf.<entry_id>` (à l'abri des purges du recorder, inclus dans les sauvegardes).
 - **Prix et jours restants** : statistiques long terme du recorder.
+- **Courbe de charge Enedis** : `/config/.storage/tempo_edf.enedis_<entry_id>` (une valeur par heure), à partir de laquelle les statistiques sont recalculées si les tarifs ou les couleurs changent.
 
-## Enedis (consommation) : étape 1, expérimental
+## Enedis : consommation par couleur dans la section Énergie
 
-Cette partie lit les données et sait les ventiler par couleur et HP/HC ; elle n'alimente pas encore la section Énergie, et une panne d'Enedis n'affecte pas les couleurs.
+L'intégration importe ta **courbe de charge** (30 min) via la passerelle gratuite et open-source **Conso API** (`conso.boris.sh`, qui relaie l'API Enedis « Mesure synchrone V2 »). Chaque heure est affectée à son cadran (couleur du jour × HC/HP) et publiée comme **statistiques externes** : 6 séries de consommation (kWh) et 6 séries de coût (€, avec la grille en vigueur *ce jour-là*).
 
-Enedis n'ouvre son API qu'aux entreprises. On passe par la passerelle gratuite et open-source **Conso API** (`conso.boris.sh`), qui expose l'API Enedis « Mesure synchrone V2 ». L'ancienne API (V5) a été coupée mi-octobre 2026 : seuls les nouveaux types sont utilisés.
+### Mise en route
 
-1. Dans ton espace Enedis, active l'enregistrement de la **courbe de charge** (sans elle, pas de ventilation par couleur et HP/HC).
+1. Dans ton espace Enedis, active l'enregistrement de la **courbe de charge**.
 2. Sur <https://conso.boris.sh>, donne ton consentement et récupère le **token**.
 3. Ton **PRM** (14 chiffres) est sur le compteur ou dans ton espace Enedis.
-4. Intégration → **Configurer** : renseigner le token et le PRM.
+4. Intégration → **Configurer** : token, PRM et « Jours d'historique Enedis à importer » (30 par défaut). L'import démarre tout seul à la validation.
+5. Suis `sensor.edf_tempo_enedis_derniere_donnee` : son attribut `status` indique « À jour » ou ce qui reste à importer.
 
-Les données du jour J ne sont disponibles que le lendemain, vers 8 h. Ne fais pas d'appels répétés : un abus peut mener à un blocage d'IP.
+### Ajouter les 6 séries dans Énergie
 
-### Format de réponse
+Paramètres → Tableaux de bord → Énergie → **Consommation du réseau** → Ajouter une source. Pour chacun des 6 cadrans :
 
-Le format de la courbe de charge a été **confirmé sur une vraie réponse** : puissance moyenne en **W** par pas de 30 minutes, horodatage = **fin** d'intervalle (heure de Paris), `dateFin` exclue. `consommation_quotidienne` est aussi confirmée (Wh, calculée par écart d'index entre deux minuits), de même que `puissance_conso_max_quotidienne` (VA, avec l'horodatage du pic). `index_consommation` renvoie les index cumulés en Wh par calendrier et par cadran.
+- consommation : `Tempo Bleu HC (consommation)`, `Tempo Bleu HP (consommation)`, … `Tempo Rouge HP (consommation)` ;
+- coût : « Utiliser une entité suivant le coût total » → la série `... (coût)` correspondante.
 
-Pour tester toi-même : **Outils de développement → Actions → `tempo_edf.enedis_fetch`**. Le résumé renvoyé contient `raw_head`, `meta` (unité), `first` / `last` (premiers et derniers points), `index_calendriers` (pour `index_consommation`) et, pour la courbe de charge, `kwh_par_jour` : à comparer à `consommation_quotidienne` sur des jours complets.
+Les données sont **horaires** (c'est la finesse maximale des statistiques de Home Assistant) et arrivent avec un jour de décalage.
+
+### Budget d'appels (Conso API : 5 requêtes/s et 10 000/h partagés, 1 requête/jour conseillée)
+
+| Situation | Requêtes |
+|---|---|
+| Régime normal | **1 par jour** (la veille), à un créneau fixe mais non rond dérivé de ton PRM, entre 08:15 et 09:59 |
+| Données pas encore prêtes | 1 seul réessai entre 14:00 et 14:59 |
+| Rattrapage de l'historique | tranches de 6 jours, **6 requêtes maximum** par synchronisation, le reste les jours suivants |
+| Erreur (token, réseau, serveur) | arrêt immédiat, aucune boucle de nouvelles tentatives |
+| Garde-fou interne | 10 requêtes par heure au plus ; synchro manuelle limitée à 1 fois par 30 min |
+
+Pour un historique de plus de quelques semaines, `conso.boris.sh` recommande son extension « Conso downloader » plutôt que l'API.
+
+### Services (Outils de développement → Actions)
+
+- `tempo_edf.enedis_sync` : lance une synchronisation tout de suite (utile pour tester ; compte dans le budget d'appels).
+- `tempo_edf.enedis_fetch` : diagnostic qui renvoie un résumé brut d'une réponse Enedis (`kwh_par_jour` pour la courbe de charge, `index_calendriers` pour les index).
+
+### Format validé sur données réelles
+
+Courbe de charge : puissance moyenne en **W** par pas de 30 min, horodatage = **fin** d'intervalle (heure de Paris), `dateFin` exclue. La somme par jour tombe exactement sur `consommation_quotidienne` (34,658 kWh le 6 nov. 2026 dans le cas testé). `index_consommation` donne les 6 cadrans Tempo (`IDX_EAS_F1` à `F6`) : il pourra servir de contrôle.
 
 ## Limites connues
 
-- **Non testé sur une instance Home Assistant réelle ni contre les API en production** : à valider au premier lancement. Les logs sont filtrables avec `docker logs <conteneur> 2>&1 | grep -i tempo_edf`.
+- **Non testé sur une instance Home Assistant réelle** : la synchronisation est validée par une simulation (faux Home Assistant + faux client Enedis), pas en production. À valider au premier lancement ; vérifie en particulier que l'écran Énergie accepte les séries de coût importées. Les logs sont filtrables avec `docker logs <conteneur> 2>&1 | grep -i tempo_edf`.
 - Pas de ré-authentification guidée : si le secret RTE change, supprimer puis recréer l'intégration (l'historique est rattrapé automatiquement).
 - Les quotas de saison viennent de `tempo.json` (Jour Tempo) et sont mémorisés ; sans cette source, les valeurs par défaut 300 / 43 / 22 de `const.py` (`SEASON_TOTALS`) s'appliquent.
 - Les tarifs sont saisis à la main (voir plus haut).

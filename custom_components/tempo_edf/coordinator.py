@@ -57,6 +57,7 @@ class TempoCoordinator(DataUpdateCoordinator[dict[str, str]]):
         self._jourtempo = jourtempo
         self._rte = rte
         self.enedis: ConsoApiClient | None = None  # renseigné par __init__ si token + PRM
+        self.enedis_sync = None  # EnedisSync, créé par __init__ si Enedis est configuré
         # Stocké dans .storage/ : survit aux purges du recorder et est inclus dans les sauvegardes.
         self._store: Store[dict[str, Any]] = Store(hass, STORE_VERSION, f"{DOMAIN}.{entry.entry_id}")
         self.days: dict[str, str] = {}

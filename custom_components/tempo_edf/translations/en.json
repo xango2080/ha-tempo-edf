@@ -23,7 +23,7 @@
     "step": {
       "init": {
         "title": "Tempo prices incl. tax (EUR/kWh)",
-        "description": "Copy the prices from your EDF tariff grid.",
+        "description": "To change tariff, enter the new prices and their effective date: the previous grid is kept for past days. Stored periods (effective dates): {periods}.",
         "data": {
           "price_blue_hc": "Blue - off-peak",
           "price_blue_hp": "Blue - peak",
@@ -33,12 +33,16 @@
           "price_red_hp": "Red - peak",
           "history_seasons": "Past seasons to import (0-12)",
           "enedis_token": "Enedis Conso API token (optional)",
-          "enedis_prm": "Linky meter PRM, 14 digits (optional)"
+          "enedis_prm": "Linky meter PRM, 14 digits (optional)",
+          "effective_date": "Effective date of the entered prices",
+          "enedis_history_days": "Days of Enedis history to import (default 30)"
         }
       }
     },
     "error": {
-      "invalid_enedis": "Provide both the token and a 14-digit PRM, or leave both empty."
+      "invalid_enedis": "Provide both the token and a 14-digit PRM, or leave both empty.",
+      "invalid_date": "Invalid effective date.",
+      "incomplete_prices": "Fill in all 6 prices."
     }
   },
   "services": {
@@ -56,6 +60,10 @@
           "name": "End (exclusive)"
         }
       }
+    },
+    "enedis_sync": {
+      "name": "Sync Enedis",
+      "description": "Runs a load-curve synchronisation (limited to once per 30 min to respect Enedis quotas)."
     }
   }
 }

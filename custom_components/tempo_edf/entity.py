@@ -7,8 +7,9 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import ATTRIBUTION, DOMAIN
+from .const import ATTRIBUTION, CONF_TARIFFS, DOMAIN
 from .coordinator import TempoCoordinator
+from .tariffs import DEFAULT_TARIFFS, tariff_at
 from .tempo import is_hc, tempo_day
 
 
@@ -30,6 +31,11 @@ class TempoEntity(CoordinatorEntity[TempoCoordinator]):
     @property
     def entry_options(self) -> dict:
         return self.coordinator.config_entry.options
+
+    def prices_today(self) -> dict[str, float]:
+        """Grille tarifaire en vigueur aujourd'hui, ex: {'BLUE_HC': 0.1356, ...}."""
+        tariffs = self.entry_options.get(CONF_TARIFFS) or DEFAULT_TARIFFS
+        return tariff_at(tariffs, dt_util.now().date()) or {}
 
     def color_on(self, offset: int = 0) -> tuple[date, str | None]:
         """(jour Tempo, couleur) pour aujourd'hui (+offset jours)."""

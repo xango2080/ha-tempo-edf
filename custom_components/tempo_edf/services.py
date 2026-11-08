@@ -7,8 +7,16 @@ import voluptuous as vol
 from homeassistant.core import HomeAssistant, ServiceCall, SupportsResponse
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
+from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN, ENEDIS_TYPES, LOAD_CURVE_CHUNK_DAYS, SERVICE_ENEDIS_FETCH
+from .const import (
+    DOMAIN,
+    ENEDIS_TYPES,
+    LOAD_CURVE_CHUNK_DAYS,
+    MANUAL_SYNC_MIN_MINUTES,
+    SERVICE_ENEDIS_FETCH,
+    SERVICE_ENEDIS_SYNC,
+)
 from .enedis_api import EnedisApiError, EnedisAuthError
 from .enedis_parse import kwh_per_day, load_curve_to_intervals, merge_payloads, summarize
 
@@ -54,6 +62,26 @@ def async_register_services(hass: HomeAssistant) -> None:
             result["kwh_par_jour"] = kwh_per_day(load_curve_to_intervals(merged))
         return result
 
+    async def _handle_sync(call: ServiceCall) -> dict:
+        sync = next(
+            (
+                e.runtime_data.enedis_sync
+                for e in hass.config_entries.async_entries(DOMAIN)
+                if getattr(e, "runtime_data", None) and e.runtime_data.enedis_sync
+            ),
+            None,
+        )
+        if sync is None:
+            raise ServiceValidationError("Enedis non configuré : renseigne le token et le PRM dans Configurer.")
+        if sync.last_manual and dt_util.now() - sync.last_manual < timedelta(minutes=MANUAL_SYNC_MIN_MINUTES):
+            raise ServiceValidationError(
+                f"Synchronisation manuelle déjà lancée il y a moins de {MANUAL_SYNC_MIN_MINUTES} min (limite d'appels Enedis)."
+            )
+        return await sync.async_sync("manual")
+
     hass.services.async_register(
         DOMAIN, SERVICE_ENEDIS_FETCH, _handle, schema=SCHEMA, supports_response=SupportsResponse.ONLY
+    )
+    hass.services.async_register(
+        DOMAIN, SERVICE_ENEDIS_SYNC, _handle_sync, schema=vol.Schema({}), supports_response=SupportsResponse.ONLY
     )

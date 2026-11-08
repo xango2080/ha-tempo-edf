@@ -20,7 +20,7 @@ ENEDIS_TYPES = [
     "puissance_conso_max_quotidienne",
     "index_consommation",
 ]
-LOAD_CURVE_CHUNK_DAYS = 7  # limite de la v5 ; non vérifiée en v2, on reste prudent
+LOAD_CURVE_CHUNK_DAYS = 6  # 6 jours = taille validée sur données réelles (288 points)
 SERVICE_ENEDIS_FETCH = "enedis_fetch"
 
 JOURTEMPO_JSON_URL = "https://jourtempo.fr/api/v1/tempo.json"
@@ -58,3 +58,18 @@ PRICE_UNIT = "EUR/kWh"
 def price_key(color: str, period: str) -> str:
     """Clé d'option pour un tarif, ex: price_blue_hc."""
     return f"price_{color.lower()}_{period.lower()}"
+
+
+# --- Tarifs datés et import Enedis -> Énergie ---
+CONF_TARIFFS = "tariffs"  # [{"from": "2026-08-01", "prices": {"BLUE_HC": 0.1356, ...}}]
+CONF_EFFECTIVE_DATE = "effective_date"
+CONF_ENEDIS_HISTORY_DAYS = "enedis_history_days"
+DEFAULT_ENEDIS_HISTORY_DAYS = 30
+MAX_ENEDIS_HISTORY_DAYS = 365
+LOAD_CURVE_TYPE = "courbe_de_charge_consommation"
+SYNC_CHUNK_DAYS = 6          # jours par requête (taille validée)
+MAX_REQUESTS_PER_RUN = 6     # plafond par synchronisation (rattrapage de l'historique étalé sur plusieurs jours)
+MAX_REQUESTS_PER_HOUR = 10   # garde-fou interne, très en dessous des quotas Enedis (5/s, 10 000/h partagés)
+SYNC_PAUSE_SECONDS = 2
+MANUAL_SYNC_MIN_MINUTES = 30
+SERVICE_ENEDIS_SYNC = "enedis_sync"

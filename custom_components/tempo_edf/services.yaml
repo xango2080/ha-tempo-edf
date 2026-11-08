@@ -18,3 +18,6 @@ enedis_fetch:
       required: true
       selector:
         date:
+
+enedis_sync:
+  fields: {}

@@ -157,3 +157,55 @@ assert daily_to_kwh(dq) == [(date(2026, 11, 6), 34.658), (date(2026, 11, 7), 34.
 assert "index_calendriers" not in summarize(dq)             # contexte vide : pas de résumé d'index
 assert kwh_per_day(iv) == {"2026-11-02": 24.0, "2026-11-03": 24.0}, kwh_per_day(iv)   # 1000 W en continu = 24 kWh / jour
 print("OK quotidien")
+
+# ---------- Tarifs datés + séries horaires ----------
+for name in ("tariffs", "enedis_stats"):
+    spec = importlib.util.spec_from_file_location(f"tempo_edf.{name}", pkg_dir / f"{name}.py")
+    mod = importlib.util.module_from_spec(spec); sys.modules[f"tempo_edf.{name}"] = mod; spec.loader.exec_module(mod)
+from tempo_edf.tariffs import *  # noqa
+from tempo_edf.enedis_stats import *  # noqa
+
+assert tariff_at(DEFAULT_TARIFFS, date(2025, 7, 31)) is None
+assert tariff_at(DEFAULT_TARIFFS, date(2025, 8, 1))["BLUE_HP"] == 0.1494
+assert tariff_at(DEFAULT_TARIFFS, date(2026, 1, 31))["RED_HP"] == 0.6468
+assert tariff_at(DEFAULT_TARIFFS, date(2026, 2, 1))["RED_HP"] == 0.7060
+assert tariff_at(DEFAULT_TARIFFS, date(2026, 7, 31))["RED_HP"] == 0.7060
+assert tariff_at(DEFAULT_TARIFFS, date(2026, 11, 8))["RED_HP"] == 0.7295
+new = upsert_period(DEFAULT_TARIFFS, "2027-02-01", {k: 0.2 for k in DEFAULT_TARIFFS[0]["prices"]})
+assert [p["from"] for p in new] == ["2025-08-01", "2026-02-01", "2026-08-01", "2027-02-01"]
+assert tariff_at(new, date(2027, 2, 1))["BLUE_HC"] == 0.2 and tariff_at(new, date(2027, 1, 31))["BLUE_HC"] == 0.1356
+assert len(upsert_period(new, "2027-02-01", {k: 0.3 for k in DEFAULT_TARIFFS[0]["prices"]})) == 4   # même date : remplacée
+assert same_prices({"a": 0.1}, {"a": 0.1}) and not same_prices({"a": 0.1}, {"a": 0.2})
+
+hourly = hourly_from_intervals(iv)                       # `iv` : 96 demi-heures de 1000 W (cf. test format réel)
+assert len(hourly) == 48 and all(abs(v - 1.0) < 1e-9 for v in hourly.values())
+series, unassigned = build_series(hourly, cols, DEFAULT_TARIFFS)
+assert unassigned == 0 and len(series[("BLUE", "HC")]["kwh"]) == 48
+fin = {t: (v["kwh"][-1][1], v["eur"][-1][1]) for t, v in series.items()}
+assert fin[("BLUE", "HC")] == (6.0, round(6 * 0.1356, 5)) and fin[("WHITE", "HP")] == (16.0, round(16 * 0.1921, 5))
+assert fin[("WHITE", "HC")] == (8.0, round(8 * 0.1536, 5)) and fin[("RED", "HP")] == (16.0, round(16 * 0.7295, 5))
+assert fin[("RED", "HC")] == (2.0, round(2 * 0.1615, 5)) and fin[("BLUE", "HP")] == (0.0, 0.0)
+sums = [v["kwh"][-1][1] for v in series.values()]
+assert abs(sum(sums) - 48.0) < 1e-9
+# cumul croissant et une ligne par heure
+assert all(b[1] >= a[1] for a, b in zip(series[("WHITE", "HP")]["kwh"], series[("WHITE", "HP")]["kwh"][1:]))
+# couleurs inconnues : heures non attribuées, pas de crash
+_, un = build_series(hourly, {}, DEFAULT_TARIFFS); assert un == 48
+# changement de tarif : le coût d'un jour passé garde l'ancienne grille
+old_series, _ = build_series(hourly, cols, upsert_period(DEFAULT_TARIFFS, "2026-11-03", {k: 1.0 for k in DEFAULT_TARIFFS[0]["prices"]}))
+assert old_series[("BLUE", "HC")]["eur"][-1][1] == round(6 * 0.1356, 5)          # 1er-2 nov. : ancienne grille
+assert old_series[("RED", "HP")]["eur"][-1][1] == round(16 * 1.0, 5)             # 3 nov. : nouvelle grille
+
+# jours manquants / tranches
+assert missing_days(hourly, date(2026, 11, 2), date(2026, 11, 3), set()) == []
+assert missing_days(hourly, date(2026, 11, 1), date(2026, 11, 5), set()) == [date(2026, 11, 1), date(2026, 11, 4), date(2026, 11, 5)]
+assert missing_days(hourly, date(2026, 11, 1), date(2026, 11, 5), {"2026-11-01"}) == [date(2026, 11, 4), date(2026, 11, 5)]
+assert last_complete_day(hourly) == date(2026, 11, 3) and last_complete_day({}) is None
+days = [date(2026, 11, d) for d in (1, 2, 3, 4, 5, 6, 7, 8, 9, 12)]
+assert group_runs(days, 6) == [(date(2026, 11, 1), date(2026, 11, 6)), (date(2026, 11, 7), date(2026, 11, 9)), (date(2026, 11, 12), date(2026, 11, 12))]
+# créneaux : stables, dans les plages prévues
+a = schedule_slots("00000000000000"); assert a == schedule_slots("00000000000000")
+for prm in ("1", "12345678901234", "99999999999999", "21262228596647"):
+    (h1, m1, s1), (h2, m2, s2) = schedule_slots(prm)
+    assert (8, 15) <= (h1, m1) <= (9, 59) and 0 <= s1 < 60 and h2 == 14 and 0 <= m2 < 60 and 0 <= s2 < 60
+print("OK tarifs+series")

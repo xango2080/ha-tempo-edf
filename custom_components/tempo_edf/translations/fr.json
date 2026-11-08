@@ -23,7 +23,7 @@
     "step": {
       "init": {
         "title": "Tarifs Tempo TTC (€/kWh)",
-        "description": "Recopie les prix de ta grille tarifaire EDF. Ils alimentent les capteurs de prix.",
+        "description": "Pour changer de tarif, saisis les nouveaux prix et leur date d'entrée en vigueur : l'ancienne grille est conservée pour les jours passés. Périodes enregistrées (dates d'entrée en vigueur) : {periods}.",
         "data": {
           "price_blue_hc": "Bleu - heures creuses",
           "price_blue_hp": "Bleu - heures pleines",
@@ -33,12 +33,16 @@
           "price_red_hp": "Rouge - heures pleines",
           "history_seasons": "Saisons d'historique à récupérer (0 à 12)",
           "enedis_token": "Token Conso API Enedis (optionnel)",
-          "enedis_prm": "PRM du compteur Linky, 14 chiffres (optionnel)"
+          "enedis_prm": "PRM du compteur Linky, 14 chiffres (optionnel)",
+          "effective_date": "Date d'entrée en vigueur des prix saisis",
+          "enedis_history_days": "Jours d'historique Enedis à importer (30 par défaut)"
         }
       }
     },
     "error": {
-      "invalid_enedis": "Renseigne le token ET un PRM de 14 chiffres, ou laisse les deux vides."
+      "invalid_enedis": "Renseigne le token ET un PRM de 14 chiffres, ou laisse les deux vides.",
+      "invalid_date": "Date d'entrée en vigueur invalide.",
+      "incomplete_prices": "Renseigne les 6 prix."
     }
   },
   "services": {
@@ -56,6 +60,10 @@
           "name": "Fin (exclue)"
         }
       }
+    },
+    "enedis_sync": {
+      "name": "Synchroniser Enedis",
+      "description": "Lance une synchronisation de la courbe de charge (limitée à 1 fois par 30 min pour ménager les quotas Enedis)."
     }
   }
 }

@@ -10,7 +10,7 @@ from homeassistant.helpers import config_validation as cv
 
 from .const import DOMAIN, ENEDIS_TYPES, LOAD_CURVE_CHUNK_DAYS, SERVICE_ENEDIS_FETCH
 from .enedis_api import EnedisApiError, EnedisAuthError
-from .enedis_parse import merge_payloads, summarize
+from .enedis_parse import kwh_per_day, load_curve_to_intervals, merge_payloads, summarize
 
 SCHEMA = vol.Schema(
     {
@@ -47,7 +47,12 @@ def async_register_services(hass: HomeAssistant) -> None:
             raise HomeAssistantError(f"Token Conso API refusé : {err}") from err
         except EnedisApiError as err:
             raise HomeAssistantError(str(err)) from err
-        return {"requests": len(payloads), **summarize(merge_payloads(payloads))}
+        merged = merge_payloads(payloads)
+        result = {"requests": len(payloads), **summarize(merged)}
+        if dtype == "courbe_de_charge_consommation":
+            # Contrôle : à comparer à consommation_quotidienne (jours complets uniquement).
+            result["kwh_par_jour"] = kwh_per_day(load_curve_to_intervals(merged))
+        return result
 
     hass.services.async_register(
         DOMAIN, SERVICE_ENEDIS_FETCH, _handle, schema=SCHEMA, supports_response=SupportsResponse.ONLY

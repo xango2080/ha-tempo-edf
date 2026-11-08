@@ -103,3 +103,57 @@ assert parse_jourtempo_quotas(q) == {"BLUE": 300, "WHITE": 43, "RED": 22}
 assert parse_jourtempo_quotas({"saison": {"compteurs": {"rouge": {"quota": 0}}}}) == {}
 assert parse_jourtempo_quotas(None) == {} and parse_jourtempo_quotas({}) == {}
 print("OK quotas")
+
+# ---------- Format réel observé (structure recopiée d'une vraie réponse ; PRM et valeurs fictifs) ----------
+from datetime import datetime as _dt
+pts = []
+for i in range(1, 97):                                  # 2 jours de points à 30 min : 02/11 00:30 -> 04/11 00:00
+    ts = _dt(2026, 11, 2) + timedelta(minutes=30 * i)
+    pts.append({"v": "1000", "d": ts.strftime("%Y-%m-%d %H:%M:%S"), "p": "PT30M", "n": "B", "iv": "0", "ec": "0"})
+real = {"idPrm": "00000000000000", "etapeMetier": "BRUT", "modeCalcul": "MESURE", "contexte": {},
+        "periode": {"dateDebut": "2026-11-02", "dateFin": "2026-11-04"},
+        "grandeur": [{"grandeurMetier": "CONS", "grandeurPhysique": "PA", "unite": "W", "calendrier": [], "points": pts}]}
+iv = load_curve_to_intervals(real)
+assert len(iv) == 96
+assert iv[0][0].isoformat() == "2026-11-01T23:00:00+00:00"        # 1er intervalle = 00:00-00:30 heure de Paris
+assert iv[-1][1].isoformat() == "2026-11-03T23:00:00+00:00"       # dernier = 23:30-00:00, fin = minuit du 4
+assert abs(sum(k for _, _, k in iv) - 48.0) < 1e-9               # 96 x 1000 W x 0,5 h = 48 kWh
+cols = {"2026-11-01": "BLUE", "2026-11-02": "WHITE", "2026-11-03": "RED"}
+sp = split_by_tariff(iv, cols)
+# 02/11 00:00-06:00 = HC de la veille (bleu) : 12 intervalles ; 06:00-22:00 = HP blanc : 32 ; 22:00-06:00 = HC blanc : 16 ; ...
+assert abs(sp[("BLUE", "HC")] - 6.0) < 1e-9 and abs(sp[("WHITE", "HP")] - 16.0) < 1e-9, sp
+assert abs(sp[("WHITE", "HC")] - 8.0) < 1e-9 and abs(sp[("RED", "HP")] - 16.0) < 1e-9 and abs(sp[("RED", "HC")] - 2.0) < 1e-9, sp
+assert abs(sum(sp.values()) - 48.0) < 1e-9
+print("OK format reel")
+
+# ---------- index_consommation : structure observée (PRM fictif, valeurs recopiées de la vraie réponse) ----------
+idx = {"idPrm": "00000000000000", "periode": {"dateDebut": "2026-11-06", "dateFin": "2026-11-08"}, "grandeur": [],
+       "contexte": [{"etapeMetier": "BRUT", "contexteReleve": "COL", "typeReleve": "AQ", "grandeur": [
+           {"grandeurMetier": "CONS", "grandeurPhysique": "EA", "unite": "Wh", "points": [], "calendrier": [
+               {"idCalendrier": "DI000003", "libelleCalendrier": "4 cadrans", "classeTemporelle": [
+                   {"idClasseTemporelle": "HCH", "libelleClasseTemporelle": "HC Hiver", "codeCadran": "IDX_EAS_D3",
+                    "valeur": [{"d": "2026-11-06 00:00:00", "v": 6228544, "iv": 0}, {"d": "2026-11-07 00:00:00", "v": 6241690, "iv": 0}]},
+                   {"idClasseTemporelle": "HPH", "libelleClasseTemporelle": "HP Hiver", "codeCadran": "IDX_EAS_D4",
+                    "valeur": [{"d": "2026-11-06 00:00:00", "v": 7069969, "iv": 0}, {"d": "2026-11-07 00:00:00", "v": 7091481, "iv": 0}]}]},
+               {"idCalendrier": "FC000050", "libelleCalendrier": "6 cadrans", "classeTemporelle": [
+                   {"idClasseTemporelle": "BCHC", "valeur": [{"d": "2026-11-06 00:00:00", "v": "100", "iv": 0}]}]}]}]}]}
+pi = parse_index(idx)
+assert set(pi) == {"DI000003", "FC000050"}
+hch = pi["DI000003"]["HCH"]
+assert hch[1][1] - hch[0][1] == 13146 and pi["DI000003"]["HPH"][1][1] - pi["DI000003"]["HPH"][0][1] == 21512
+assert pi["FC000050"]["BCHC"] == [(date(2026, 11, 6), 100.0)]
+sm = summarize(idx)
+assert [c["calendrier"] for c in sm["index_calendriers"]] == ["DI000003", "FC000050"]
+assert sm["index_calendriers"][0]["classes"][0]["cadran"] == "IDX_EAS_D3"
+assert parse_index(None) == {} and parse_index({"contexte": {}}) == {}
+print("OK index")
+
+# ---------- consommation_quotidienne / puissance max : formats observés ----------
+dq = {"idPrm": "00000000000000", "typeValeur": "GLOBALE", "modeCalcul": "DIFF.INDEX", "pas": "P1D",
+      "grandeur": [{"grandeurMetier": "CONS", "grandeurPhysique": "EA", "unite": "Wh",
+                    "points": [{"v": "34658", "d": "2026-11-06"}, {"v": "34763", "d": "2026-11-07"}], "calendrier": []}],
+      "contexte": []}
+assert daily_to_kwh(dq) == [(date(2026, 11, 6), 34.658), (date(2026, 11, 7), 34.763)]
+assert "index_calendriers" not in summarize(dq)             # contexte vide : pas de résumé d'index
+assert kwh_per_day(iv) == {"2026-11-02": 24.0, "2026-11-03": 24.0}, kwh_per_day(iv)   # 1000 W en continu = 24 kWh / jour
+print("OK quotidien")

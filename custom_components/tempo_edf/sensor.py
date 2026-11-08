@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity, SensorStateClass
+from homeassistant.components.sensor import SensorDeviceClass, SensorEntity, SensorStateClass
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
@@ -14,6 +14,7 @@ from .const import (
     COLOR_EMOJI,
     COLOR_HEX,
     COLORS,
+    PERIODS,
     PRICE_UNIT,
     SEASON_TOTALS,
     TARIFFS,
@@ -43,6 +44,9 @@ class TempoDaySensor(TempoEntity, SensorEntity):
     """Couleur du jour Tempo (J) ou du lendemain (J+1). 'unknown' tant que RTE ne l'a pas publiée."""
 
     _attr_icon = "mdi:flash"
+    # ENUM : l'éditeur d'automatisations propose la liste des états au lieu d'une saisie libre.
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = list(COLORS.values())  # ["Bleu", "Blanc", "Rouge"]
 
     def __init__(self, coordinator, key: str, name: str, offset: int) -> None:
         super().__init__(coordinator, key)
@@ -73,6 +77,8 @@ class TempoCurrentSensor(TempoEntity, SensorEntity):
 
     _attr_name = "Tarif actuel"
     _attr_icon = "mdi:clock-time-eight-outline"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = [f"{name} {period}" for name in COLORS.values() for period in PERIODS]
 
     def __init__(self, coordinator) -> None:
         super().__init__(coordinator, "current")

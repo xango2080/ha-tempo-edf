@@ -10,7 +10,7 @@ Intégration personnalisée qui récupère les **couleurs Tempo** (bleu, blanc, 
 
 | Entité | Contenu |
 |---|---|
-| `sensor.edf_tempo_couleur_aujourd_hui` | Bleu / Blanc / Rouge. Attributs : `color` (blue/white/red), `emoji`, `color_hex`, `date` |
+| `sensor.edf_tempo_couleur_aujourd_hui` | Bleu / Blanc / Rouge (capteur à liste d'états : l'éditeur d'automatisations propose un menu déroulant). Attributs : `color` (blue/white/red), `emoji`, `color_hex`, `date` |
 | `sensor.edf_tempo_couleur_demain` | idem ; `unknown` tant que la couleur de demain n'est pas annoncée (vers 11 h) |
 | `sensor.edf_tempo_tarif_actuel` | ex. `Bleu HP` (attributs `period`, `is_hc`, `is_hp`) |
 | `sensor.edf_tempo_prix_actuel` | prix €/kWh en cours |
@@ -134,7 +134,7 @@ entities:
 
 ## Enedis (consommation) : étape 1, expérimental
 
-Cette partie ne fait que lire les données ; elle n'alimente pas encore la section Énergie, et une panne d'Enedis n'affecte pas les couleurs.
+Cette partie lit les données et sait les ventiler par couleur et HP/HC ; elle n'alimente pas encore la section Énergie, et une panne d'Enedis n'affecte pas les couleurs.
 
 Enedis n'ouvre son API qu'aux entreprises. On passe par la passerelle gratuite et open-source **Conso API** (`conso.boris.sh`), qui expose l'API Enedis « Mesure synchrone V2 ». L'ancienne API (V5) a été coupée mi-octobre 2026 : seuls les nouveaux types sont utilisés.
 
@@ -145,11 +145,11 @@ Enedis n'ouvre son API qu'aux entreprises. On passe par la passerelle gratuite e
 
 Les données du jour J ne sont disponibles que le lendemain, vers 8 h. Ne fais pas d'appels répétés : un abus peut mener à un blocage d'IP.
 
-### Valider le format réel (important)
+### Format de réponse
 
-Le format de réponse est celui de la documentation, sans données réelles observées. Utilise **Outils de développement → Actions → `tempo_edf.enedis_fetch`** (type `courbe_de_charge_consommation`, 2 jours) et vérifie : l'unité (`meta`), et si le point `d` est le début ou la fin de l'intervalle (`first`). Teste aussi `index_consommation` : s'il contient un index par tarif Tempo, la ventilation sera plus simple et plus fiable.
+Le format de la courbe de charge a été **confirmé sur une vraie réponse** : puissance moyenne en **W** par pas de 30 minutes, horodatage = **fin** d'intervalle (heure de Paris), `dateFin` exclue. `consommation_quotidienne` est aussi confirmée (Wh, calculée par écart d'index entre deux minuits), de même que `puissance_conso_max_quotidienne` (VA, avec l'horodatage du pic). `index_consommation` renvoie les index cumulés en Wh par calendrier et par cadran.
 
-Hypothèses à confirmer dans `enedis_parse.py` : `v` en W pour la courbe de charge et en Wh pour le quotidien, `d` = fin d'intervalle (`LOAD_CURVE_TS_IS_END`).
+Pour tester toi-même : **Outils de développement → Actions → `tempo_edf.enedis_fetch`**. Le résumé renvoyé contient `raw_head`, `meta` (unité), `first` / `last` (premiers et derniers points), `index_calendriers` (pour `index_consommation`) et, pour la courbe de charge, `kwh_par_jour` : à comparer à `consommation_quotidienne` sur des jours complets.
 
 ## Limites connues
 

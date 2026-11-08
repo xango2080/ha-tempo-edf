@@ -23,6 +23,11 @@ ENEDIS_TYPES = [
 LOAD_CURVE_CHUNK_DAYS = 7  # limite de la v5 ; non vérifiée en v2, on reste prudent
 SERVICE_ENEDIS_FETCH = "enedis_fetch"
 
+JOURTEMPO_JSON_URL = "https://jourtempo.fr/api/v1/tempo.json"
+JOURTEMPO_CSV_URL = "https://jourtempo.fr/api/v1/tempo-historique.csv"
+USER_AGENT = "ha-tempo-edf (github.com/xango2080/ha-tempo-edf)"
+ATTRIBUTION = "Couleurs : RTE, via Jour Tempo (jourtempo.fr)"
+
 TOKEN_URL = "https://digital.iservices.rte-france.com/token/oauth/"
 CALENDAR_URL = (
     "https://digital.iservices.rte-france.com/open_api/"

@@ -20,6 +20,7 @@ from homeassistant.helpers.selector import (
 )
 
 from .api import RteApiError, RteAuthError, RteClient
+from .jourtempo_api import JourTempoClient, JourTempoError
 from .const import (
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
@@ -34,7 +35,7 @@ from .const import (
 )
 
 USER_SCHEMA = vol.Schema(
-    {vol.Required(CONF_CLIENT_ID): str, vol.Required(CONF_CLIENT_SECRET): str}
+    {vol.Optional(CONF_CLIENT_ID): str, vol.Optional(CONF_CLIENT_SECRET): str}
 )
 
 
@@ -42,30 +43,34 @@ class TempoConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Identifiants RTE facultatifs : sans eux, la source gratuite Jour Tempo est utilisée."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            client = RteClient(
-                async_get_clientsession(self.hass),
-                user_input[CONF_CLIENT_ID].strip(),
-                user_input[CONF_CLIENT_SECRET].strip(),
-            )
-            try:
-                now = dt_util.now()
-                await client.async_check(now - timedelta(days=2), now - timedelta(days=1))
-            except RteAuthError:
-                errors["base"] = "invalid_auth"
-            except RteApiError:
-                errors["base"] = "cannot_connect"
+            cid = (user_input.get(CONF_CLIENT_ID) or "").strip()
+            secret = (user_input.get(CONF_CLIENT_SECRET) or "").strip()
+            session = async_get_clientsession(self.hass)
+            if bool(cid) != bool(secret):
+                errors["base"] = "incomplete"
+            elif cid:
+                try:
+                    now = dt_util.now()
+                    await RteClient(session, cid, secret).async_check(
+                        now - timedelta(days=2), now - timedelta(days=1)
+                    )
+                except RteAuthError:
+                    errors["base"] = "invalid_auth"
+                except RteApiError:
+                    errors["base"] = "cannot_connect"
             else:
-                await self.async_set_unique_id(user_input[CONF_CLIENT_ID].strip())
+                try:
+                    await JourTempoClient(session).async_get_current()
+                except JourTempoError:
+                    errors["base"] = "cannot_connect"
+            if not errors:
+                await self.async_set_unique_id(DOMAIN)
                 self._abort_if_unique_id_configured()
-                return self.async_create_entry(
-                    title="EDF Tempo",
-                    data={
-                        CONF_CLIENT_ID: user_input[CONF_CLIENT_ID].strip(),
-                        CONF_CLIENT_SECRET: user_input[CONF_CLIENT_SECRET].strip(),
-                    },
-                )
+                data = {CONF_CLIENT_ID: cid, CONF_CLIENT_SECRET: secret} if cid else {}
+                return self.async_create_entry(title="EDF Tempo", data=data)
         return self.async_show_form(step_id="user", data_schema=USER_SCHEMA, errors=errors)
 
     @staticmethod

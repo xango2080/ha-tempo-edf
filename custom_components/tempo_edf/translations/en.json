@@ -2,8 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "RTE API connection",
-        "description": "Create an application on data.rte-france.com subscribed to the \"Tempo Like Supply Contract\" API, then paste the client ID and secret.",
+        "title": "Tempo colour source",
+        "description": "Leave both fields empty to use the free Jour Tempo source (no account). Optional: client ID and secret of an RTE application subscribed to the \"Tempo Like Supply Contract\" API, used first.",
         "data": {
           "client_id": "Client ID",
           "client_secret": "Client secret"
@@ -12,7 +12,8 @@
     },
     "error": {
       "invalid_auth": "Rejected by RTE, or the application is not subscribed to the \"Tempo Like Supply Contract\" API.",
-      "cannot_connect": "Cannot reach the RTE API."
+      "cannot_connect": "Cannot reach the RTE API.",
+      "incomplete": "Provide both the client ID and the secret, or leave both empty."
     },
     "abort": {
       "already_configured": "These credentials are already configured."

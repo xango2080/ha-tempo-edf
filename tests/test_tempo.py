@@ -74,3 +74,32 @@ assert date_chunks(date(2026, 1, 1), date(2026, 1, 16), 7) == [
 m = merge_payloads([daily, daily]); assert len(m["grandeur"][0]["points"]) == 2
 s = summarize(m); assert s["grandeurs"][0]["points_count"] == 2 and "raw_head" in s
 print("OK enedis")
+
+# ---------- Jour Tempo (échantillons recopiés de la documentation https://jourtempo.fr/api/) ----------
+doc_json = {"aujourdhui": {"date": "2026-12-03", "code": "blanc"}, "demain": {"date": "2026-12-04", "code": "rouge"},
+            "calendrier": {"2026-09-01": "bleu", "2026-12-03": "blanc"}}
+assert parse_jourtempo_json(doc_json) == {"2026-09-01": "BLUE", "2026-12-03": "WHITE", "2026-12-04": "RED"}
+doc_json["demain"]["code"] = "inconnu"          # pas encore annoncé : ignoré
+assert "2026-12-04" not in parse_jourtempo_json(doc_json)
+assert parse_jourtempo_json(None) == {} and parse_jourtempo_json({"calendrier": []}) == {}
+csv_text = "\ufeffdate,couleur,saison\n2014-09-01,bleu,2014-2015\n2014-12-05,rouge,2014-2015\nbad,??,x\n"
+assert parse_jourtempo_csv(csv_text) == {"2014-09-01": "BLUE", "2014-12-05": "RED"}
+assert parse_jourtempo_csv("") == {}
+print("OK jourtempo")
+
+d = {"2026-09-01": "BLUE", "2026-09-02": "RED", "2026-09-03": "BLUE"}
+r = season_status(d, date(2026, 9, 2))            # demain (3 sept.) déjà annoncé : déduit
+assert r["counts"] == {"BLUE": 2, "WHITE": 0, "RED": 1} and r["known"] == r["elapsed"] == 3, r
+r = season_status({"2026-09-01": "BLUE", "2026-09-02": "RED"}, date(2026, 9, 2))   # demain inconnu
+assert r["counts"]["BLUE"] == 1 and r["elapsed"] == 2
+r = season_status({"2026-09-02": "RED"}, date(2026, 9, 2))                          # historique incomplet
+assert r["known"] != r["elapsed"]
+print("OK season_status")
+
+q = {"saison": {"compteurs": {"bleu": {"quota": 300, "tombes": 68, "restants": 232},
+                               "blanc": {"quota": 43, "tombes": 1, "restants": 42},
+                               "rouge": {"quota": "22", "tombes": 0, "restants": 22}}}}
+assert parse_jourtempo_quotas(q) == {"BLUE": 300, "WHITE": 43, "RED": 22}
+assert parse_jourtempo_quotas({"saison": {"compteurs": {"rouge": {"quota": 0}}}}) == {}
+assert parse_jourtempo_quotas(None) == {} and parse_jourtempo_quotas({}) == {}
+print("OK quotas")

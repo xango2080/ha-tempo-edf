@@ -10,6 +10,7 @@ from homeassistant.helpers.event import async_track_time_change
 from .api import RteClient
 from .const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, CONF_ENEDIS_PRM, CONF_ENEDIS_TOKEN, DOMAIN
 from .enedis_api import ConsoApiClient
+from .jourtempo_api import JourTempoClient
 from .coordinator import TempoCoordinator
 from .services import async_register_services
 
@@ -19,16 +20,15 @@ type TempoConfigEntry = ConfigEntry[TempoCoordinator]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: TempoConfigEntry) -> bool:
-    client = RteClient(
-        async_get_clientsession(hass),
-        entry.data[CONF_CLIENT_ID],
-        entry.data[CONF_CLIENT_SECRET],
-    )
-    coordinator = TempoCoordinator(hass, entry, client)
+    session = async_get_clientsession(hass)
+    rte = None
+    if entry.data.get(CONF_CLIENT_ID) and entry.data.get(CONF_CLIENT_SECRET):
+        rte = RteClient(session, entry.data[CONF_CLIENT_ID], entry.data[CONF_CLIENT_SECRET])
+    coordinator = TempoCoordinator(hass, entry, JourTempoClient(session), rte)
     token = entry.options.get(CONF_ENEDIS_TOKEN)
     prm = entry.options.get(CONF_ENEDIS_PRM)
     if token and prm:
-        coordinator.enedis = ConsoApiClient(async_get_clientsession(hass), token, prm)
+        coordinator.enedis = ConsoApiClient(session, token, prm)
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
     async_register_services(hass)

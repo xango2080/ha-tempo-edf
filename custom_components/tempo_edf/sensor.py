@@ -20,7 +20,7 @@ from .const import (
     price_key,
 )
 from .entity import TempoEntity
-from .tempo import count_days, season_label, tempo_day
+from .tempo import season_label, season_status, tempo_day
 
 
 async def async_setup_entry(
@@ -34,6 +34,7 @@ async def async_setup_entry(
         TempoCurrentPriceSensor(c),
         TempoSeasonSensor(c),
     ]
+    entities += [TempoRemainingSensor(c, color) for color in SEASON_TOTALS]
     entities += [TempoFixedPriceSensor(c, color, period) for color, period in TARIFFS]
     async_add_entities(entities)
 
@@ -143,7 +144,7 @@ class TempoSeasonSensor(TempoEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         today = tempo_day(dt_util.now())
-        res = count_days(self.coordinator.days, today)
+        res = season_status(self.coordinator.days, today)
         attrs: dict[str, Any] = {
             "history_complete": res["known"] == res["elapsed"],
             "known_days": res["known"],
@@ -152,5 +153,43 @@ class TempoSeasonSensor(TempoEntity, SensorEntity):
         for color, n in res["counts"].items():
             name = color.lower()
             attrs[f"{name}_used"] = n
-            attrs[f"{name}_remaining"] = SEASON_TOTALS[color] - n
+            attrs[f"{name}_remaining"] = self.coordinator.quota(color) - n
         return attrs
+
+
+COLOR_PLURAL = {"BLUE": "bleus", "WHITE": "blancs", "RED": "rouges"}
+
+
+class TempoRemainingSensor(TempoEntity, SensorEntity):
+    """Jours restants d'une couleur sur la saison (demain déduit dès son annonce).
+
+    'unknown' tant que l'historique de la saison est incomplet : mieux vaut pas de valeur qu'une fausse.
+    """
+
+    _attr_native_unit_of_measurement = "jours"
+    _attr_state_class = SensorStateClass.MEASUREMENT  # statistiques long terme conservées
+    _attr_icon = "mdi:calendar-clock"
+
+    def __init__(self, coordinator, color: str) -> None:
+        super().__init__(coordinator, f"remaining_{color.lower()}")
+        self._color = color
+        self._attr_name = f"Jours {COLOR_PLURAL[color]} restants"
+
+    def _status(self) -> dict[str, Any]:
+        return season_status(self.coordinator.days, tempo_day(dt_util.now()))
+
+    @property
+    def native_value(self) -> int | None:
+        res = self._status()
+        if res["known"] != res["elapsed"]:
+            return None
+        return self.coordinator.quota(self._color) - res["counts"][self._color]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        res = self._status()
+        return {
+            "quota": self.coordinator.quota(self._color),
+            "used": res["counts"][self._color],
+            "history_complete": res["known"] == res["elapsed"],
+        }

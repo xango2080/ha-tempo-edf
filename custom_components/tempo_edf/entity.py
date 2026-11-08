@@ -7,13 +7,14 @@ from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .const import ATTRIBUTION, DOMAIN
 from .coordinator import TempoCoordinator
 from .tempo import is_hc, tempo_day
 
 
 class TempoEntity(CoordinatorEntity[TempoCoordinator]):
     _attr_has_entity_name = True
+    _attr_attribution = ATTRIBUTION
 
     def __init__(self, coordinator: TempoCoordinator, key: str) -> None:
         super().__init__(coordinator)

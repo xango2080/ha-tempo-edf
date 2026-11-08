@@ -2,8 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connexion à l'API RTE",
-        "description": "Crée une application sur data.rte-france.com abonnée à l'API « Tempo Like Supply Contract », puis recopie l'ID client et l'ID secret.",
+        "title": "Source des couleurs Tempo",
+        "description": "Laisse les deux champs vides pour utiliser la source gratuite Jour Tempo (sans compte). Facultatif : ID client et ID secret d'une application RTE abonnée à l'API « Tempo Like Supply Contract », utilisée en priorité.",
         "data": {
           "client_id": "ID client",
           "client_secret": "ID secret"
@@ -12,7 +12,8 @@
     },
     "error": {
       "invalid_auth": "Identifiants refusés par RTE, ou application non abonnée à l'API « Tempo Like Supply Contract ».",
-      "cannot_connect": "Impossible de joindre l'API RTE."
+      "cannot_connect": "Impossible de joindre l'API RTE.",
+      "incomplete": "Renseigne l'ID client ET l'ID secret, ou laisse les deux vides."
     },
     "abort": {
       "already_configured": "Ces identifiants sont déjà configurés."

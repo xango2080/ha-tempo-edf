@@ -11,7 +11,6 @@ from homeassistant.util import dt as dt_util
 from . import TempoConfigEntry
 from .const import COLOR_EMOJI, COLORS
 from .entity import TempoEntity
-from .tempo import tempo_day
 
 
 async def async_setup_entry(

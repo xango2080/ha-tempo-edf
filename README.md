@@ -54,7 +54,8 @@ Les réglages et l'historique sont conservés (ils sont dans `/config/.storage/`
 | **Jour Tempo** (`jourtempo.fr/api/v1`) | non | Source par défaut : `tempo.json` (jour, demain, calendrier de la saison) et `tempo-historique.csv` (depuis 2014) |
 | **API officielle RTE** « Tempo Like Supply Contract » | oui (facultatif) | Si les identifiants sont renseignés, interrogée en premier ; Jour Tempo sert de secours |
 
-- **Fréquence** : au plus **une requête par heure**, et seulement tant qu'une couleur du jour ou de demain manque. Jour Tempo recommande un appel toutes les 30 minutes, jamais moins de 10.
+- **Quand la couleur de demain arrive** : RTE la fixe vers **10 h 30** ; Jour Tempo relève à 11:00, 11:30, 12:00 et 12:30 (heure de Paris). L'intégration vérifie à **11:05, 11:35, 12:05, 12:35 et 13:05** (et à 10:35 et 10:50 si une clé RTE est configurée), puis toutes les heures tant que la couleur manque. La couleur de demain reste donc `unknown` entre 06:00 et environ 11:05.
+- **Aucun appel inutile** : avant 10 h 30, la couleur de demain ne peut pas exister, donc rien n'est demandé ; dès qu'elle est connue, plus aucun appel jusqu'au lendemain. En pratique, quelques requêtes par jour. Jour Tempo recommande un appel toutes les 30 minutes au plus, jamais moins de 10.
 - **Attribution** : « Couleurs : RTE, via Jour Tempo (jourtempo.fr) ». Jour Tempo est un site indépendant, édité ni par EDF ni par RTE, sans garantie de disponibilité.
 - **En cas de panne** : les couleurs stockées restent utilisées, et les capteurs restent disponibles.
 

@@ -209,3 +209,17 @@ for prm in ("1", "12345678901234", "99999999999999", "21262228596647"):
     (h1, m1, s1), (h2, m2, s2) = schedule_slots(prm)
     assert (8, 15) <= (h1, m1) <= (9, 59) and 0 <= s1 < 60 and h2 == 14 and 0 <= m2 < 60 and 0 <= s2 < 60
 print("OK tarifs+series")
+
+# ---------- needs_colors : quand interroger la source ----------
+from datetime import datetime as _D
+d = {"2026-11-08": "BLUE", "2026-11-09": "BLUE"}
+assert needs_colors(d, date(2026, 11, 8), _D(2026, 11, 8, 12, 0)) is False                    # tout est connu
+assert needs_colors({"2026-11-09": "BLUE"}, date(2026, 11, 8), _D(2026, 11, 8, 9, 0)) is True   # couleur du jour absente
+d1 = {"2026-11-09": "BLUE"}                                                                  # jour Tempo = 9 nov., demain (10) inconnu
+assert needs_colors(d1, date(2026, 11, 9), _D(2026, 11, 9, 6, 5)) is False                    # avant l'annonce : aucun appel
+assert needs_colors(d1, date(2026, 11, 9), _D(2026, 11, 9, 10, 29)) is False
+assert needs_colors(d1, date(2026, 11, 9), _D(2026, 11, 9, 10, 30)) is True
+assert needs_colors(d1, date(2026, 11, 9), _D(2026, 11, 9, 18, 0)) is True                     # annoncée en retard : on continue
+d2 = {"2026-11-08": "BLUE"}                                                                  # 3 h du matin le 9 : jour Tempo = 8 nov.
+assert needs_colors(d2, date(2026, 11, 8), _D(2026, 11, 9, 3, 0)) is True                      # « demain » = 9 nov. déjà annoncé la veille
+print("OK needs_colors")

@@ -26,7 +26,8 @@ from .const import (
 )
 from .enedis_api import ConsoApiClient
 from .jourtempo_api import JourTempoClient, JourTempoError
-from .tempo import has_gaps, parse_calendar, past_season_bounds, season_start, tempo_day
+from .enedis_parse import PARIS
+from .tempo import has_gaps, needs_colors, parse_calendar, past_season_bounds, season_start, tempo_day
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -75,6 +76,10 @@ class TempoCoordinator(DataUpdateCoordinator[dict[str, str]]):
             {"days": self.days, "quotas": self.quotas, "backfilled_seasons": self._backfilled}
         )
 
+    @property
+    def has_rte(self) -> bool:
+        return self._rte is not None
+
     async def _async_fetch_current(self, start_day, today) -> tuple[dict[str, str], dict[str, int]]:
         """RTE officiel d'abord s'il est configuré, sinon (ou en cas d'échec) Jour Tempo."""
         errors: list[str] = []
@@ -106,9 +111,8 @@ class TempoCoordinator(DataUpdateCoordinator[dict[str, str]]):
 
         now = dt_util.now()
         today = tempo_day(now)
-        tomorrow = today + timedelta(days=1)
 
-        missing_recent = today.isoformat() not in self.days or tomorrow.isoformat() not in self.days
+        missing_recent = needs_colors(self.days, today, now.astimezone(PARIS))
         gaps = has_gaps(self.days, today)
         # Rattrapage complet de la saison au plus 1 fois / 24 h
         full_ok = gaps and (

@@ -6,7 +6,7 @@ import io
 from datetime import date, datetime, timedelta
 from typing import Any
 
-from .const import COLORS, DAY_START_HOUR, HC_START_HOUR
+from .const import ANNOUNCE_HOUR, ANNOUNCE_MINUTE, COLORS, DAY_START_HOUR, HC_START_HOUR
 
 
 def season_start(d: date) -> date:
@@ -135,3 +135,16 @@ def parse_jourtempo_quotas(payload: Any) -> dict[str, int]:
         if quota > 0:
             out[code] = quota
     return out
+
+
+def needs_colors(days: dict[str, str], today: date, now_local: datetime) -> bool:
+    """Faut-il interroger une source ? Oui si la couleur du jour manque, ou si celle de demain manque
+    ET a déjà pu être annoncée (la veille, ou aujourd'hui à partir de 10 h 30)."""
+    if today.isoformat() not in days:
+        return True
+    tomorrow = today + timedelta(days=1)
+    if tomorrow.isoformat() in days:
+        return False
+    if tomorrow <= now_local.date():  # entre 0 h et 6 h : le « demain » Tempo est le jour civil en cours
+        return True
+    return (now_local.hour, now_local.minute) >= (ANNOUNCE_HOUR, ANNOUNCE_MINUTE)

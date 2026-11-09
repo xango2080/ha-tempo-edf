@@ -73,3 +73,10 @@ MAX_REQUESTS_PER_HOUR = 10   # garde-fou interne, très en dessous des quotas En
 SYNC_PAUSE_SECONDS = 2
 MANUAL_SYNC_MIN_MINUTES = 30
 SERVICE_ENEDIS_SYNC = "enedis_sync"
+
+# --- Annonce de la couleur de demain ---
+# RTE fixe la couleur du lendemain vers 10 h 30 ; Jour Tempo relève à 11:00, 11:30, 12:00, 12:30 (heure de Paris).
+ANNOUNCE_HOUR, ANNOUNCE_MINUTE = 10, 30
+# Créneaux de vérification (heure de Paris), calés 5 min après les relevés Jour Tempo (cache de 2 min).
+ANNOUNCE_SLOTS = {(11, 5), (11, 35), (12, 5), (12, 35), (13, 5)}
+ANNOUNCE_SLOTS_RTE = {(10, 35), (10, 50)}  # en plus, si l'API officielle RTE est configurée (annonce ~10 h 30)

@@ -8,8 +8,9 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_track_time_change
 
 from .api import RteClient
-from .const import CONF_CLIENT_ID, CONF_CLIENT_SECRET, CONF_ENEDIS_PRM, CONF_ENEDIS_TOKEN, CONF_TARIFFS, DOMAIN
+from .const import ANNOUNCE_SLOTS, ANNOUNCE_SLOTS_RTE, CONF_CLIENT_ID, CONF_CLIENT_SECRET, CONF_ENEDIS_PRM, CONF_ENEDIS_TOKEN, CONF_TARIFFS, DOMAIN
 from .enedis_api import ConsoApiClient
+from .enedis_parse import PARIS
 from .enedis_sync import EnedisSync
 from .jourtempo_api import JourTempoClient
 from .coordinator import TempoCoordinator
@@ -45,6 +46,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: TempoConfigEntry) -> boo
         # 00:00 : changement de grille éventuel ; 06:00 : nouveau jour Tempo + HP ; 22:00 : HC.
         coordinator.async_update_listeners()
 
+    slots = ANNOUNCE_SLOTS | (ANNOUNCE_SLOTS_RTE if coordinator.has_rte else set())
+
+    @callback
+    def _announce_tick(now) -> None:
+        # Vérifie la couleur de demain juste après chaque relevé de la source ; sans effet si elle est déjà connue.
+        local = now.astimezone(PARIS)
+        if (local.hour, local.minute) in slots:
+            entry.async_create_background_task(hass, coordinator.async_request_refresh(), f"{DOMAIN}_announce")
+
+    entry.async_on_unload(
+        async_track_time_change(hass, _announce_tick, hour=[10, 11, 12, 13], minute=[5, 35, 50], second=20)
+    )
     entry.async_on_unload(async_track_time_change(hass, _tick, hour=[0, 6, 22], minute=0, second=1))
     entry.async_on_unload(entry.add_update_listener(_async_reload))
 
